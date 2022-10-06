@@ -756,7 +756,14 @@ public class Delombok {
 		if (Javac.getJavaCompilerVersion() >= 9) unnamedModule = Symtab.instance(context).unnamedModule;
 		
 		for (File fileToParse : filesToParse) {
-			JCCompilationUnit unit = compiler.parse(fileToParse.getAbsolutePath());
+			JCCompilationUnit unit;
+			try {
+				unit = compiler.parse(fileToParse.getAbsolutePath());
+			} catch (StackOverflowError e) {
+				System.err.println("StackOverflow error while processing: " + fileToParse.getAbsolutePath());
+				e.printStackTrace();
+				continue;
+			}
 			if (Javac.getJavaCompilerVersion() >= 9) try {
 				MODULE_FIELD.set(unit, unnamedModule);
 			} catch (IllegalAccessException e) {
