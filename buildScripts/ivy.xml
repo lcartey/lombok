@@ -75,6 +75,8 @@
 		<dependency org="net.java.openjdk.custom" name="javac7" rev="1.7.0" conf="javac7->runtime" />
 		<dependency org="net.java.openjdk.custom" name="javac8" rev="1.8.0" conf="javac8->runtime" />
 		
+		<dependency org="org.apache.tomcat" name="tomcat-jasper" rev="9.0.31" conf="build,stripe->default" />
+		
 		<!-- ecjs -->
 		
 		<dependency org="org.eclipse.jdt" name="ecj" rev="3.25.0" conf="ecj16->master" />

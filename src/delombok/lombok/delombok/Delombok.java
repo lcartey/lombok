@@ -810,13 +810,18 @@ public class Delombok {
 			}
 			unit.defs = newDefs.toList();
 			if (verbose) feedback.printf("File: %s [%s%s]\n", unit.sourcefile.getName(), result.isChanged() ? "delomboked" : "unchanged", force && !options.isChanged(unit) ? " (forced)" : "");
+			File outputFile = null;
 			Writer rawWriter;
 			if (presetWriter != null) rawWriter = createUnicodeEscapeWriter(presetWriter);
 			else if (output == null) rawWriter = createStandardOutWriter();
-			else rawWriter = createFileWriter(output, baseMap.get(unit), unit.sourcefile.toUri());
+			else {
+				outputFile = constructOutputFilePath(output, baseMap.get(unit), unit.sourcefile.toUri());
+				rawWriter = createFileWriter(outputFile);
+			}
 			BufferedWriter writer = new BufferedWriter(rawWriter);
 			try {
-				result.print(writer);
+				// Pass the outputFile, if any (TODO, the if any part)
+				result.print(outputFile, writer);
 			} finally {
 				if (output != null) {
 					writer.close();
@@ -902,8 +907,9 @@ public class Delombok {
 		int idx = name.lastIndexOf('.');
 		return idx == -1 ? "" : name.substring(idx+1);
 	}
-	
-	private Writer createFileWriter(File outBase, File inBase, URI file) throws IOException {
+
+
+	private File constructOutputFilePath(File outBase, File inBase, URI file) {
 		URI base = inBase.toURI();
 		URI relative = base.relativize(base.resolve(file));
 		File outFile;
@@ -912,7 +918,11 @@ public class Delombok {
 		} else {
 			outFile = new File(outBase, relative.getPath());
 		}
-		
+
+		return outFile;
+	}
+
+	private Writer createFileWriter(File outFile) throws IOException {
 		outFile.getParentFile().mkdirs();
 		FileOutputStream out = new FileOutputStream(outFile);
 		return createUnicodeEscapeWriter(out);

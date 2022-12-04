@@ -21,16 +21,24 @@
  */
 package lombok.delombok;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.nio.charset.Charset;
 import java.util.Date;
 import java.util.List;
 
 import javax.tools.JavaFileObject;
 
-import lombok.javac.CommentInfo;
+import org.apache.jasper.compiler.SmapStratum;
 
+import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
+
+import lombok.javac.CommentInfo;
+import lombok.javac.PackageName;
 
 public class DelombokResult {
 	private final List<CommentInfo> comments;
@@ -47,7 +55,7 @@ public class DelombokResult {
 		this.formatPreferences = formatPreferences;
 	}
 	
-	public void print(Writer out) throws IOException {
+	public void print(File outputFile, Writer out) throws IOException {
 		if (!changed) {
 			CharSequence content = getContent();
 			if (content != null) {
@@ -71,7 +79,38 @@ public class DelombokResult {
 		for (int tbs : textBlockStarts) textBlockStarts_[idx++] = tbs;
 		FormatPreferences preferences = new FormatPreferenceScanner().scan(formatPreferences, getContent());
 		//compilationUnit.accept(new PrettyCommentsPrinter(out, compilationUnit, comments_, preferences));
-		compilationUnit.accept(new PrettyPrinter(out, compilationUnit, comments_, textBlockStarts_, preferences));
+
+		// Create an SMAP file where we will write the line mappings
+		SmapStratum smap = new SmapStratum();
+		smap.setOutputFileName(outputFile.getName());
+		JCTree packageNode = PackageName.getPackageNode(compilationUnit);
+		String packge = packageNode.toString();
+		File inputFile = new File(compilationUnit.sourcefile.toUri());
+		String inputFilePath = packge.replaceAll("\\.", "/") + "/" + inputFile.getName();
+		smap.addFile(inputFile.getName(), inputFilePath);
+
+		// Set the ClassFileName
+		String smapClassName = packge + "/" + outputFile.getName().toString().substring(0, outputFile.getName().toString().length()-".java".length());
+		smap.setClassFileName(smapClassName);
+
+		// Pretty print the file
+		compilationUnit.accept(new PrettyPrinter(smap, inputFilePath, out, compilationUnit, comments_, textBlockStarts_, preferences));
+
+		String smapFilePath = outputFile.getAbsolutePath().toString().substring(0, outputFile.getAbsolutePath().toString().length()-".java".length()) + ".smap";
+
+		// Write the SMAP data to a file adjacent to the data file
+		File outSmap = new File(smapFilePath);
+		// TODO print this via feedback from the Delombok class
+		//System.out.println("Writing SMAP file to " + outSmap);
+
+		Writer fileWriter = new OutputStreamWriter(new FileOutputStream(outSmap), Charset.forName("UTF-8"));
+
+		// TODO smap.optimizeLineSection() compresses the line mapping
+		try {
+			fileWriter.write(smap.getSmapString());
+		} finally {
+			fileWriter.close();
+		}
 	}
 
 	private CharSequence getContent() throws IOException {
